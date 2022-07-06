@@ -21,12 +21,17 @@ Features:
 * Add new move data for the games (WIP)
 * Use custom types that do not exist in the vanilla game (ex. Fairy)
 
+Known Issues:
+* Certain moves cannot be searched for while the move drop down menu is open (Ex. Shadow Force)
+* The last NULL move gives a recoverable exception when selected
 
 
 Planned Features:
 * Reading move and type names directly from the selected roms so that the moves.txt and types.txt files are no longer necessary
 * Editing and adding move names so that another tool is not needed for this
 * Support for romhacks that do not store move data in the default location
+
+
 
 
 Created in C# with Microsoft Visual Studio as IDE with Windows forms for UI.
