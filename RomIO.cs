@@ -1,26 +1,27 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace PokemonHGSSMoveEditor
 {
     partial class MoveEditorModel : IMoveEditorModel
     {
         //reads move data from a gen 4 pokemon rom or binary file
-        public List<byte[]> readBinFile(string fileName)
+        public List<byte[]> ReadBinFile(string fileName)
         {
-            
             byte[] trailingBytes = new byte[Constants.HGSSMOVEDATAOFFSET - Constants.HGSSMOVEFILEOFFSET];
-            //var header = new byte[Constants.HEADERSIZE];
-            var returnVal = new List<byte[]>(getNumMoves() + 1)
+            var returnVal = new List<byte[]>(Constants.DEFAULTNUMMOVES + 1) //+1 due to needing to return the trailing bytes in the list as the first value
             {
                 new byte[Constants.HGSSMOVEDATAOFFSET - Constants.HGSSMOVEFILEOFFSET]
-            }; //+1 due to needing to return the trailing bytes in the list as the first value
+            }; 
+            byte[] tempByteArray = new byte[Constants.NUMMOVEDATABYTES];
 
-            for (int i = 0; i < getNumMoves(); i++)
-            {
-                returnVal.Add(new byte[Constants.NUMMOVEDATABYTES]);
-            }
+            //filler byte value between files inside the game roms (with the exception of platinum)
+            byte[] fillerMoveRowFF = new byte[] { 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255};
+
+            byte[] fillerMoveRowZeroes = new byte[Constants.NUMMOVEDATABYTES]; //platinum uses all zeroes for filler bytes between files
+            byte[] narcCharsByteVals = new byte[] { 0x4E, 0x41, 0x52, 0x43 }; //array of byte values corresponding to the string "NARC"
 
             if (!File.Exists(fileName))
             {
@@ -29,7 +30,7 @@ namespace PokemonHGSSMoveEditor
 
             FileStream stream = new FileStream(fileName, FileMode.Open);
 
-            switch (readFileHeader(stream, false))
+            switch (ReadFileHeader(stream, false))
             {
                 case "HGSS":
                     stream.Position = Constants.HGSSMOVEFILEOFFSET;
@@ -53,9 +54,18 @@ namespace PokemonHGSSMoveEditor
                 stream.Read(trailingBytes, 0, Constants.HGSSMOVEDATAOFFSET - Constants.HGSSMOVEFILEOFFSET);
                 returnVal[0] = trailingBytes;
 
-                for (int i = 0; i < getNumMoves(); i++)
-                {
-                    stream.Read(returnVal[i + 1], 0, Constants.NUMMOVEDATABYTES);
+                //reads rows of 16 bytes from the file until it reaches eof, the row is filler, or the next NARC file is reached in the rom
+                while (stream.Position + Constants.NUMMOVEDATABYTES < stream.Length)
+                { 
+                    stream.Read(tempByteArray, 0, Constants.NUMMOVEDATABYTES);
+
+                    if (tempByteArray.SequenceEqual(fillerMoveRowFF) || tempByteArray.SequenceEqual(fillerMoveRowZeroes) || tempByteArray.Intersect(narcCharsByteVals).SequenceEqual(narcCharsByteVals))
+                    {
+                        break;
+                    }
+                    
+                    returnVal.Add((byte[])tempByteArray.Clone());
+                    
                 }
 
                 stream.Close();
@@ -123,7 +133,7 @@ namespace PokemonHGSSMoveEditor
             return true;
         }
 
-        public List<string> readListFile(string fileName)
+        public List<string> ReadListFile(string fileName)
         {
             var contents = new List<string>();
 
@@ -167,7 +177,7 @@ namespace PokemonHGSSMoveEditor
 
         }
 
-        public bool appendListFile(string fileName, string item)
+        public bool AppendListFile(string fileName, string item)
         {
             if (!File.Exists(fileName))
             {
@@ -206,7 +216,7 @@ namespace PokemonHGSSMoveEditor
 
 
         //reads the first 10 bytes of the passed fileStream to check that it is a compatible rom or binary file and which grouping it is
-        public string readFileHeader(FileStream stream, bool romOnly)
+        public string ReadFileHeader(FileStream stream, bool romOnly)
         {
             var header = new byte[Constants.HEADERSIZE];
 
@@ -254,7 +264,7 @@ namespace PokemonHGSSMoveEditor
         {
             var stream = new FileStream(fileName, FileMode.Open);
 
-            switch(readFileHeader(stream, true))
+            switch(ReadFileHeader(stream, true))
             {
                 case "HGSS":
                     stream.Position = Constants.HGSSMOVEDATAOFFSET;
@@ -292,5 +302,9 @@ namespace PokemonHGSSMoveEditor
             unsavedChanges = false;
             return true;
         }
+
+        
+
+        
     }
 }
